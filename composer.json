@@ -1,0 +1,16 @@
+{
+    "name": "tmkook/easyhtml",
+    "type": "project",
+    "description": "Automatically get HTML article list and content",
+    "keywords": ["html parser","article extract"],
+    "homepage": "https://github.com/tmkook/easyhtml",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.0.0"
+    },
+	"autoload": {
+        "psr-4": {
+            "Tmkook\\": "src/"
+        }
+    }
+}
