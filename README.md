@@ -1,6 +1,8 @@
 # easyhtml
 
-自动识别提取HTML的文章列表和文章正文，无需输入任何标签信息及正则信息
+自动提取HTML的文章列表和文章正文
+无需输入任何标签信息及正则信息
+支持大部分主流博客和新闻站点
 
 ## 安装
 
@@ -72,8 +74,7 @@ $easyContent->fixUrl();
 $easyContent->getContent();
 
 //获取文章纯文字内容，传入长度可截取简介
-$length = 0;
-$easyContent->getText($length);
+$easyContent->getText($length);//截取多少个字符，默认为0不截取
 
 //获取转换后的图片链接
 $easyContent->getImages();

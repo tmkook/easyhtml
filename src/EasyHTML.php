@@ -266,6 +266,8 @@ class EasyHTML
             $score = 0;
             $url = explode('#',$node->getAttribute('href'))[0];
             $class = $node->getAttribute('class').$node->parentNode->getAttribute('class');
+
+            //todo 检查子元素
             if(preg_match("@(title|list|cover|pic|img)@i",$class)){
                 $score += 20;
             }
@@ -286,7 +288,7 @@ class EasyHTML
                 $list[$score][] = $url;
             }
         }
-        // print_r($list);exit;
+        print_r($list);exit;
         $key = max(array_keys($list));
         $list = array_unique($list[$key]);
         $page = array_unique($page);
