@@ -32,13 +32,6 @@ class EasyHTML
     protected $source;
 
     /**
-     * website charset.
-     *
-     * @var string
-     */
-    protected $charset = 'UTF-8';
-
-    /**
      * score attrubute.
      *
      * @var string
@@ -67,23 +60,39 @@ class EasyHTML
     ];
 
     /**
-     * Create a instance.
+     * content charset.
      *
-     * @param string $source
-     * @param string $charset
+     * @var string
      */
-    public function __construct($source,$charset='UTF-8'){
-        $this->load($source, $charset);
+    protected $charset = 'UTF-8';
+
+    /**
+     * load html with its charset.
+     *
+     * @param  string $url
+     * @param  int $timeout
+     * @param  string $charset
+     * @return static
+     */
+    public function loadURL($url,$timeout=60,$charset='UTF-8'){
+        $options = [
+            'http'=>[
+                'method' => 'GET',
+                'timeout' => $timeout
+            ]
+        ];
+        $context = stream_context_create($options);
+        $source = file_get_contents($url,false,$context);
+        return $this->loadHTML($source,$charset);
     }
 
     /**
      * load html with its charset.
      *
      * @param  string $source
-     * @param  string $charset
      * @return static
      */
-    public function load($source, $charset="UTF-8")
+    public function loadHTML($source,$charset='UTF-8')
     {
         //convert charset
         $this->content = null;
@@ -227,7 +236,7 @@ class EasyHTML
     public function getDate()
     {
         $date = '';
-        if (! preg_match('|(\d{2,4}[/年\s-]+\d{1,2}[/月\s-]+\d{1,2})|s', $this->source, $matches)) {
+        if (! preg_match('@(\d{2,4}[/年\s-]+\d{1,2}[/月\s-]+\d{1,2})@s', $this->source, $matches)) {
             $date = '';
         }else{
             $date = $matches[1];
@@ -241,7 +250,7 @@ class EasyHTML
         return $date;
     }
 
-     /**
+    /**
      * make article content
      * force=true if no content is found, the body is returned
      *
@@ -254,42 +263,33 @@ class EasyHTML
         $page = [];
         $nodes = $this->dom->getElementsByTagName('a');
         while ($node = $nodes->item($i++)) {
+            $score = 0;
             $url = explode('#',$node->getAttribute('href'))[0];
             $class = $node->getAttribute('class').$node->parentNode->getAttribute('class');
-            $preg = implode('|',$this->contentName);
-            $urlinfo = parse_url($url);
-            $path = trim($urlinfo['path'],'/');
-            if(preg_match("@(".$preg.")\w*/.+@i",$path)){
-                $list[] = $url;
-            }else if(preg_match("|/\d{4}/\d{1,2}/.+|i",$path)){
-                $extend = explode('.',$path);
-                if(!isset($extend[1]) || $extend[1] == 'html' || $extend[1] == 'htm'){
-                    $list[] = $url;
-                }
-            }else if(preg_match("/(".$preg."|title|list|item)/i",$class)){
-                $list[] = $url;
+            if(preg_match("@(title|list|cover|pic|img)@i",$class)){
+                $score += 20;
             }
-            if(strpos($class,'page') > 0 || preg_match("/page/\d*|page=\d*/",$url)){
+            $preg = implode('|',$this->contentName);
+            if(preg_match("@(".$preg.")\w*/.+@i",$url)){
+                $score += 10;
+            }
+            if(preg_match("@/\d{4}/\d{1,2}/.+@i",$url)){
+                $score += 5;
+            }
+            if(preg_match("@\.htm|\.html@i",$url)){
+                $score += 5;
+            }
+            if(preg_match("@page/\d*|page=\d*@i",$url)){
                 $page[] = $url;
             }
-        }
-        $page = array_unique($page);
-        $list = array_unique($list);
-
-        //filter url
-        $filter = [];
-        foreach($list as $item){
-            $path = trim(parse_url($item)['path'],'/');
-            $first = explode('/',$path)[0];
-            $filter[$first][] = $item;
-        }
-        $list = [];
-        foreach($filter as $key=>$item){
-            if(count($filter[$key]) > count($list)){
-                $list = $filter[$key];
+            if($score > 0){
+                $list[$score][] = $url;
             }
         }
-        
+        // print_r($list);exit;
+        $key = max(array_keys($list));
+        $list = array_unique($list[$key]);
+        $page = array_unique($page);
         return ['list'=>$list,'page'=>$page];
     }
 
@@ -316,7 +316,7 @@ class EasyHTML
                 $currentScore  = intval($currentNode->getAttribute(static::ART_SCORE));
                 $classAndId   = $currentNode->getAttribute("class").$currentNode->getAttribute("id");
                 $preg = implode('|',$this->contentName);
-                if (preg_match("/(".$preg.")/i",$classAndId)){
+                if (preg_match("@(".$preg.")@i",$classAndId)){
                     $nodeAttr = $node->getAttribute("class").$node->getAttribute("id");
                     if(empty($nodeAttr)){
                         $currentScore += 30;

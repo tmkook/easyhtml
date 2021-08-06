@@ -1,6 +1,6 @@
 # easyhtml
 
-自动识别提取HTML页面文章列表和文章正文
+自动识别提取HTML的文章列表和文章正文，无需输入任何标签信息及正则信息
 
 ## 安装
 
@@ -12,20 +12,71 @@ composer require "tmkook/easyhtml:*"
 ## 使用
 
 ```php
-$html = file_get_contents('url');
-$easy = new Tmkook\EasyHTML($html);
 
-var_dump($easy->getList()); //获取文章列表
-var_dump($easy->getContent()); //获取正文
-var_dump($easy->getDate()); //获取日期
-var_dump($easy->getTitle()); //获取标题
-var_dump($easy->getLogo()); //获取favicon或LOGO
-var_dump($easy->getImages()); //获取正文图片
-var_dump($easy->getMeta("description")); //only name and property
+$easy = new Tmkook\EasyHTML;
 
-$easy->load($html); //重新加载HTML页面
-$easy->getContentNode(); //获取正文DOMDocument
-$easy->getDocumentNode(); //获页面DOMDocument
+//加载一个URL
+$easy->loadURL('http url');
+
+//或者加载一段HTML
+$easy->loadHTML($html);
+
+//获取当前页面所有文章链接和分页链接
+//return ['list'=>list,'page'=>page]
+$easy->getList();
+
+//获取当前页面文章内容，相对链接转换可使用 EasyContent 
+$easy->getContent();
+
+//获取当前页面内的日期
+$easy->getDate(); 
+
+//获取当前页面的标题
+$easy->getTitle();
+
+//获取当前页面的favicon或LOGO
+var_dump($easy->getLogo());
+
+//获取文章内的图片，相对链接转换可使用 EasyContent 
+//return array
+$easy->getImages();
+
+//获取当前页面的Meta标签值，只支持 name 和 property
+$easy->getMeta("description");
+
+//获取正文DOMDocument
+$easy->getContentNode();
+
+//获页面DOMDocument
+$easy->getDocumentNode();
+
+//DOMDocument 如何使用请参考
+https://www.php.net/manual/en/class.domdocument.php
+
+```
+
+## EasyContent 相对链接转换
+
+```php
+//相对链接转换绝对链接的域名
+$url = 'https://example.com';
+
+//文章正文
+$content = $easy->getContent();
+
+//开始转换
+$easyContent = new Tmkook\EasyContent($url,$content);
+$easyContent->fixUrl();
+
+//获取转换后的正文
+$easyContent->getContent();
+
+//获取文章纯文字内容，传入长度可截取简介
+$length = 0;
+$easyContent->getText($length);
+
+//获取转换后的图片链接
+$easyContent->getImages();
 
 ```
 

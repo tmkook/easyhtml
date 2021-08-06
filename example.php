@@ -30,18 +30,19 @@ $html = '
     <p>
         article content
     </p>
-    <img src="https://img.example.com/test1.jpg" />
+    <img src="/static/test1.jpg" />
     <p>
         article content
     </p>
     <img src="https://img.example.com/test2.jpg" />
     <p>
-        article content
+        article content <a href="/test/test">relate uri</a>
     </p>
-    <img src="https://img.example.com/test3.jpg" />
+    <img src="image/test3.jpg" />
     <pre>
         <code>
-            $easy = new Tmkook\EasyHTML($html);
+            $easy = new Tmkook\EasyHTML;
+            $easy->loadHTML($html);
             print_r($easy->getLogo());
             print_r($easy->getDate());
             print_r($easy->getTitle());
@@ -55,15 +56,19 @@ $html = '
 </body>
 </html>';
 
-//$html = file_get_contents('url');
-$easy = new Tmkook\EasyHTML($html);
+$easy = new Tmkook\EasyHTML;
+$easy->loadHTML($html);
 
-echo '<pre>';
-var_dump($easy->getList());
-var_dump($easy->getContent());
-var_dump($easy->getDate());
-var_dump($easy->getTitle());
-var_dump($easy->getLogo());
-var_dump($easy->getImages());
-var_dump($easy->getMeta("description")); //only name and property
-echo '</pre>';
+print_r($easy->getList());
+print_r($easy->getDate());
+print_r($easy->getTitle());
+print_r($easy->getLogo());
+print_r($easy->getImages());
+print_r($easy->getMeta("description"));
+
+$main = new Tmkook\EasyContent('http://example.com',$easy->getContent());
+$main->fixUrl();
+
+print_r($main->getText());
+print_r($main->getContent());
+print_r($main->getImages());
