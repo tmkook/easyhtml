@@ -106,7 +106,7 @@ class EasyHTML
 
         //parse html to dom
         $this->dom = new \DOMDocument('1.0', $charset);
-        $this->dom->loadHTML('<?xml encoding="'.$charset.'">'.$source);
+        @$this->dom->loadHTML('<?xml encoding="'.$charset.'">'.$source);
 
         return $this;
     }
@@ -265,15 +265,28 @@ class EasyHTML
         while ($node = $nodes->item($i++)) {
             $score = 0;
             $url = explode('#',$node->getAttribute('href'))[0];
-            $class = $node->getAttribute('class').$node->parentNode->getAttribute('class');
+            $class = $node->getAttribute('class').$node->parentNode->getAttribute('class').$node->parentNode->parentNode->getAttribute('class');
 
-            //todo 检查子元素
-            if(preg_match("@(title|list|cover|pic|img)@i",$class)){
+            //匹配子元素
+            foreach($node->childNodes as $item){
+                if($item->nodeType == 1){
+                    $childclass = $item->getAttribute('class');
+                    if(preg_match("@(title|cover|pic)@i",$childclass)){
+                        $score += 10;
+                    }
+                    if($item->tagName == 'h1' || $item->tagName == 'h2' || $item->tagName == 'h3' || $item->tagName == 'h4'){
+                        $score += 10;
+                    }
+                }
+            }
+            
+            //匹配当前元素和父元素
+            if(preg_match("@(title|content|list|cover|pic|img)@i",$class)){
                 $score += 20;
             }
             $preg = implode('|',$this->contentName);
             if(preg_match("@(".$preg.")\w*/.+@i",$url)){
-                $score += 10;
+                $score += 20;
             }
             if(preg_match("@/\d{4}/\d{1,2}/.+@i",$url)){
                 $score += 5;
@@ -281,17 +294,21 @@ class EasyHTML
             if(preg_match("@\.htm|\.html@i",$url)){
                 $score += 5;
             }
-            if(preg_match("@page/\d*|page=\d*@i",$url)){
+
+            //匹配分页
+            if(preg_match("@page/\d+|page=\d+@i",$url) || preg_match("@next page|»|下一页@i",$node->nodeValue)){
                 $page[] = $url;
             }
+
+            //可能是文章
             if($score > 0){
                 $list[$score][] = $url;
             }
         }
-        print_r($list);exit;
+        
         $key = max(array_keys($list));
-        $list = array_unique($list[$key]);
-        $page = array_unique($page);
+        $list = array_values(array_unique($list[$key]));
+        $page = array_values(array_unique($page));
         return ['list'=>$list,'page'=>$page];
     }
 
