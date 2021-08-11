@@ -264,8 +264,31 @@ class EasyHTML
         $nodes = $this->dom->getElementsByTagName('a');
         while ($node = $nodes->item($i++)) {
             $score = 0;
+            $pgscore = 0;
             $url = explode('#',$node->getAttribute('href'))[0];
-            $class = $node->getAttribute('class').$node->parentNode->getAttribute('class').$node->parentNode->parentNode->getAttribute('class');
+            $class = $node->getAttribute('class');
+            $parentClass = $node->parentNode->getAttribute('class').$node->parentNode->parentNode->getAttribute('class');
+
+            //匹配当前元素和父元素
+            if(preg_match("@p/\w+@i",$url)){
+                $score += 25;
+            }
+            $preg = implode('|',$this->contentName);
+            if(preg_match("@(".$preg.")\w*/.+@i",$url)){
+                $score += 25;
+            }
+            if(preg_match("@(title|content|list|cover|pic|img)@i",$class)){
+                $score += 10;
+            }
+            if(preg_match("@(title|content|list|cover|pic|img)@i",$parentClass)){
+                $score += 5;
+            }
+            if(preg_match("@/\d{4}/\d{1,2}/.+@i",$url)){
+                $score += 5;
+            }
+            if(preg_match("@\.htm|\.html@i",$url)){
+                $score += 5;
+            }
 
             //匹配子元素
             foreach($node->childNodes as $item){
@@ -279,36 +302,40 @@ class EasyHTML
                     }
                 }
             }
-            
-            //匹配当前元素和父元素
-            if(preg_match("@(title|content|list|cover|pic|img)@i",$class)){
-                $score += 20;
-            }
-            $preg = implode('|',$this->contentName);
-            if(preg_match("@(".$preg.")\w*/.+@i",$url)){
-                $score += 20;
-            }
-            if(preg_match("@/\d{4}/\d{1,2}/.+@i",$url)){
-                $score += 5;
-            }
-            if(preg_match("@\.htm|\.html@i",$url)){
-                $score += 5;
+
+            //可能是文章
+            if($score > 5){
+                $list[$score][] = $url;
             }
 
             //匹配分页
-            if(preg_match("@page/\d+|page=\d+@i",$url) || preg_match("@next page|»|下一页@i",$node->nodeValue)){
-                $page[] = $url;
+            if(preg_match("@page/\d+|page=\d+@i",$url)){
+                $pgscore += 25;
             }
-
-            //可能是文章
-            if($score > 0){
-                $list[$score][] = $url;
+            if(preg_match("@next page|下一页|下一个@i",$node->nodeValue)){
+                $pgscore += 10;
+            }
+            if(preg_match("@(page|pagination|numbers)@i",$class)){
+                $pgscore += 5;
+            }
+            if(preg_match("@(page|pagination|numbers)@i",$parentClass)){
+                $pgscore += 5;
+            }
+            if(!preg_match("@\d+@i",$url)){
+                $pgscore -= 10;
+            }
+            //可能是分页
+            if($pgscore > 5){
+                $page[$pgscore][] = $url;
             }
         }
-        
+        // print_r($list);exit;
+        // print_r($page);exit;
         $key = max(array_keys($list));
         $list = array_values(array_unique($list[$key]));
-        $page = array_values(array_unique($page));
+
+        $key = max(array_keys($page));
+        $page = array_values(array_unique($page[$key]));
         return ['list'=>$list,'page'=>$page];
     }
 
