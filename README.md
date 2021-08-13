@@ -14,14 +14,14 @@ composer require "tmkook/easyhtml:*"
 ## 使用
 
 ```php
+//$data可以是URL或HTML
+$easy = new Tmkook\EasyHTML($data);
 
+//或者
 $easy = new Tmkook\EasyHTML;
+$easy->loadURL('http url'); //加载一个URL
+$easy->loadHTML($html); //或者加载一段HTML
 
-//加载一个URL
-$easy->loadURL('http url');
-
-//或者加载一段HTML
-$easy->loadHTML($html);
 
 //获取当前页面所有文章链接和分页链接
 //return ['list'=>list,'page'=>page]
@@ -68,7 +68,10 @@ $content = $easy->getContent();
 
 //开始转换
 $easyContent = new Tmkook\EasyContent($url,$content);
-$easyContent->fixUrl();
+
+//或者
+$easyContent = new Tmkook\EasyContent($url);
+$easyContent->setContent($content);
 
 //获取转换后的正文
 $easyContent->getContent();

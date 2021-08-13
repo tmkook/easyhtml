@@ -12,14 +12,27 @@ class EasyContent
 {
     protected $base;
     protected $content;
-    public function __construct($base,$content){
+    public function __construct($base='',$content=''){
+        if(!empty($base)){
+            $this->setBase($base);
+        }
+        if(!empty($content)){
+            $this->setContent($content);
+        }
+    }
+
+    public function setBase($base){
         $this->base = parse_url($base);
         $info = pathinfo($this->base['path']);
         $this->base['path'] = $info['dirname'];
-        $this->content = $content;
     }
 
-    public function fixUrl(){
+    public function setContent($content){
+        if(empty($this->base)){
+            throw new \Exception('Base URL is not set',101);
+        }
+        $this->content = $content;
+
         //fix img tag url
         preg_match_all('@<img.*?src="([^"]*)"[^>]*>@i', $this->content, $cover);
         $cover = $cover[1];

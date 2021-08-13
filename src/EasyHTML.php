@@ -66,6 +66,16 @@ class EasyHTML
      */
     protected $charset = 'UTF-8';
 
+    public function __construct($data=''){
+        if(!empty($data)){
+            if(strpos($data,'http') == 0){
+                $this->loadURL($data);
+            }else{
+                $this->loadHTML($data);
+            }
+        }
+    }
+
     /**
      * load html with its charset.
      *
@@ -190,20 +200,20 @@ class EasyHTML
      */
     public function getLogo(){
         $icon = '';
-        $imageNodes = $this->dom->getElementsByTagName("link");
-        foreach ($imageNodes as $img) {
-            $rel = $img->getAttribute("rel");
-            if(strpos($rel,'icon') > 0){
-                $icon = $img->getAttribute('href');
+        $imageNodes = $this->dom->getElementsByTagName("meta");
+        foreach($imageNodes as $img){
+            $rel = $img->getAttribute('property');
+            if(strpos($rel,'icon') || strpos($rel,'image')){
+                $icon = $img->getAttribute('content');
                 break;
             }
         }
         if(empty($icon)){
-            $imageNodes = $this->dom->getElementsByTagName("meta");
-            foreach($imageNodes as $img){
-                $rel = $img->getAttribute('property');
-                if(strpos($rel,'icon') > 0 || strpos($rel,'image')){
-                    $icon = $img->getAttribute('content');
+            $imageNodes = $this->dom->getElementsByTagName("link");
+            foreach ($imageNodes as $img) {
+                $rel = $img->getAttribute("rel");
+                if(strpos($rel,'icon')){
+                    $icon = $img->getAttribute('href');
                     break;
                 }
             }
@@ -331,11 +341,15 @@ class EasyHTML
         }
         // print_r($list);exit;
         // print_r($page);exit;
-        $key = max(array_keys($list));
-        $list = array_values(array_unique($list[$key]));
-
-        $key = max(array_keys($page));
-        $page = array_values(array_unique($page[$key]));
+        if(!empty($list)){
+            $key = max(array_keys($list));
+            $list = array_values(array_unique($list[$key]));
+        }
+        
+        if(!empty($page)){
+            $key = max(array_keys($page));
+            $page = array_values(array_unique($page[$key]));
+        }
         return ['list'=>$list,'page'=>$page];
     }
 
@@ -404,6 +418,8 @@ class EasyHTML
      */
     protected function purge($dom){
         //remove score attribute
+        $dom->removeAttribute('id');
+        $dom->removeAttribute('class');
         $dom->removeAttribute(self::ART_SCORE);
 
         //remove ignore tags
