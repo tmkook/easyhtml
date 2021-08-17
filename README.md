@@ -80,7 +80,7 @@ $easyContent->getContent();
 $easyContent->getText($length);//截取多少个字符，默认为0不截取
 
 //获取转换后的图片链接
-$easyContent->getImages();
+$easyContent->getImages($length);//获取多少个正文图片，默认为0取全部
 
 ```
 
