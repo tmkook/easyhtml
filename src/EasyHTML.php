@@ -235,6 +235,16 @@ class EasyHTML
         if($titleNodes->length && $titleNode = $titleNodes->item(0)){
             $title = $titleNode->nodeValue;
         }
+        $ele = [];
+        if(strpos($title,'_') > 0){
+            $ele = explode('_',$title);
+        }elseif(strpos($title,'-') > 0){
+            $ele = explode('-',$title);
+        }
+        if(!empty($ele)){
+            $title = $ele[0];
+        }
+
         return $title;
     }
 
@@ -322,7 +332,7 @@ class EasyHTML
             if(preg_match("@page/\d+|page=\d+@i",$url)){
                 $pgscore += 25;
             }
-            if(preg_match("@next page|下一页|下一个@i",$node->nodeValue)){
+            if(preg_match("@next page|下一页@i",$node->nodeValue)){
                 $pgscore += 10;
             }
             if(preg_match("@(page|pagination|numbers)@i",$class)){
