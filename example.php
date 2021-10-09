@@ -67,7 +67,6 @@ print_r($easy->getImages());
 print_r($easy->getMeta("description"));
 
 $main = new Tmkook\EasyContent('http://example.com',$easy->getContent());
-$main->fixUrl();
 
 print_r($main->getText());
 print_r($main->getContent());

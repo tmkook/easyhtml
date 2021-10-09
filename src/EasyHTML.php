@@ -56,7 +56,7 @@ class EasyHTML
      * @var array
      */
     protected $contentName = [
-        'article','archive','blog','content','detail','entry','post','news'
+        'article','archive','blog','content','detail','entry','post','news','topic'
     ];
 
     /**
@@ -88,11 +88,17 @@ class EasyHTML
         $options = [
             'http'=>[
                 'method' => 'GET',
-                'timeout' => $timeout
+                'timeout' => $timeout,
+                'user_agent'=> $_SERVER['HTTP_USER_AGENT'],
+                'header' => "Referer: {$url}\r\n"
             ]
         ];
         $context = stream_context_create($options);
         $source = file_get_contents($url,false,$context);
+        if(empty($source)){
+            throw new \Exception('request error',500);
+        }
+        $this->url = $url;
         return $this->loadHTML($source,$charset);
     }
 
@@ -107,10 +113,15 @@ class EasyHTML
         //convert charset
         $this->content = null;
         $this->charset = $charset;
-        $encode = mb_detect_encoding($source);
+        preg_match('@charset="([\w-]+)"|charset=([\w-]+)@',$source,$matches);
+        $encode = empty($matches[2])? $matches[1] : $matches[2];
+        if(empty($encode)){
+            $title = preg_match('@<title>(.*)</title>@i',$source,$matches);
+            $encode = mb_detect_encoding($matches[1]);
+        }
         if($encode != $charset){
             $source = mb_convert_encoding($source,$charset,$encode);
-            $source = preg_replace("|{$encode}|", $charset, $source,1);
+            $source = preg_replace("@{$encode}@", $charset, $source);
         }
         $this->source = $source;
 
@@ -158,11 +169,9 @@ class EasyHTML
     }
 
     /**
-     * get article content
-     * force=true if no content is found, the body is returned
+     * get article images
      *
-     * @param bool $force
-     * @return string
+     * @return array
      */
     public function getImages(){
         if(!$this->content){
@@ -177,8 +186,8 @@ class EasyHTML
     }
 
     /**
-     * get meta description
-     *
+     * get meta  name or property content
+     * @param string $name
      * @return string
      */
     public function getMeta($name){
@@ -201,13 +210,6 @@ class EasyHTML
     public function getLogo(){
         $icon = '';
         $imageNodes = $this->dom->getElementsByTagName("meta");
-        foreach($imageNodes as $img){
-            $rel = $img->getAttribute('property');
-            if(strpos($rel,'icon') || strpos($rel,'image')){
-                $icon = $img->getAttribute('content');
-                break;
-            }
-        }
         if(empty($icon)){
             $imageNodes = $this->dom->getElementsByTagName("link");
             foreach ($imageNodes as $img) {
@@ -219,13 +221,22 @@ class EasyHTML
             }
         }
         if(empty($icon)){
+            foreach($imageNodes as $img){
+                $rel = $img->getAttribute('property');
+                if(strpos($rel,'icon') || strpos($rel,'image')){
+                    $icon = $img->getAttribute('content');
+                    break;
+                }
+            }
+        }
+        if(empty($icon)){
             $icon = '/favicon.ico';
         }
         return $icon;
     }
 
     /**
-     * get page title
+     * get website page title
      *
      * @return string
      */
@@ -240,6 +251,10 @@ class EasyHTML
             $ele = explode('_',$title);
         }elseif(strpos($title,'-') > 0){
             $ele = explode('-',$title);
+        }elseif(strpos($title,'·') > 0){
+            $ele = explode('·',$title);
+        }elseif(strpos($title,'|') > 0){
+            $ele = explode('|',$title);
         }
         if(!empty($ele)){
             $title = $ele[0];
@@ -271,96 +286,195 @@ class EasyHTML
     }
 
     /**
-     * make article content
-     * force=true if no content is found, the body is returned
+     * make url sampling
+     * http://test.com/news/1.html
+     * parse to
+     * http://test.com/string/number.html
      *
-     * @param bool $force
+     * @param string $url
      * @return string
      */
-    public function getList(){
+    public function urlSampling($url){
+        $urlinfo = parse_url($url);
+        $path = trim($urlinfo['path'],'/');
+        $host = $this->getDomain($url);
+
+        //扩展名
+        $ext = trim(pathinfo($path)['extension']);
+        if($ext){
+            $ext = '.'.$ext;
+            $path = str_replace($ext,'',$path);
+        }
+        $path = explode('/',$path);
+
+        //取样
+        $pattern = '';
+        if(count($path) > 2){
+            $pattern = '/'.array_shift($path);
+        }
+        while($a = array_shift($path)){
+            if($a > 0){
+                $a = '/number';
+            }else{
+                $a = '/string';
+            }
+            $pattern .= $a;
+        }
+
+        //合并后的取样结果
+        $pattern = $host.$pattern.$ext;
+        return $pattern;
+    }
+
+    /**
+     * make article list
+     * debug=true print matches
+     *
+     * @param bool $debug
+     * @return string
+     */
+    public function getList($debug = false){
         $i = 0;
         $list = [];
         $page = [];
+        $title = [];
+        $power = [];
+        $length = [];
         $nodes = $this->dom->getElementsByTagName('a');
         while ($node = $nodes->item($i++)) {
+            $url = $node->getAttribute('href');
+            $url = explode('#',$url)[0];
+            $url = trim($url,'/');
+            $url = trim($url,'./');
+            if(empty($url) || strlen($url) < 2 || $url == 'javascript:;'){
+                continue;
+            }
+            $text = $this->getMaxTitle($node->textContent);
+            if(empty($text)){
+                continue;
+            }
+
+            //匹配加权
             $score = 0;
             $pgscore = 0;
-            $url = explode('#',$node->getAttribute('href'))[0];
-            $class = $node->getAttribute('class');
-            $parentClass = $node->parentNode->getAttribute('class').$node->parentNode->parentNode->getAttribute('class');
-
-            //匹配当前元素和父元素
-            if(preg_match("@p/\w+@i",$url)){
-                $score += 25;
-            }
-            $preg = implode('|',$this->contentName);
-            if(preg_match("@(".$preg.")\w*/.+@i",$url)){
-                $score += 25;
-            }
-            if(preg_match("@(title|content|list|cover|pic|img)@i",$class)){
-                $score += 10;
-            }
-            if(preg_match("@(title|content|list|cover|pic|img)@i",$parentClass)){
-                $score += 5;
-            }
-            if(preg_match("@/\d{4}/\d{1,2}/.+@i",$url)){
-                $score += 5;
-            }
-            if(preg_match("@\.htm|\.html@i",$url)){
-                $score += 5;
-            }
-
-            //匹配子元素
-            foreach($node->childNodes as $item){
-                if($item->nodeType == 1){
-                    $childclass = $item->getAttribute('class');
-                    if(preg_match("@(title|cover|pic)@i",$childclass)){
-                        $score += 10;
-                    }
-                    if($item->tagName == 'h1' || $item->tagName == 'h2' || $item->tagName == 'h3' || $item->tagName == 'h4'){
-                        $score += 10;
-                    }
-                }
-            }
-
-            //可能是文章
-            if($score > 5){
-                $list[$score][] = $url;
-            }
-
+            $class = $node->getAttribute('class').$node->parentNode->getAttribute('class').$node->parentNode->parentNode->getAttribute('class');
+            
             //匹配分页
             if(preg_match("@page/\d+|page=\d+@i",$url)){
-                $pgscore += 25;
+                $pgscore += 10;
             }
             if(preg_match("@next page|下一页@i",$node->nodeValue)){
                 $pgscore += 10;
             }
             if(preg_match("@(page|pagination|numbers)@i",$class)){
-                $pgscore += 5;
-            }
-            if(preg_match("@(page|pagination|numbers)@i",$parentClass)){
-                $pgscore += 5;
+                $pgscore += 10;
             }
             if(!preg_match("@\d+@i",$url)){
-                $pgscore -= 10;
+                $pgscore -= 20;
             }
-            //可能是分页
             if($pgscore > 5){
-                $page[$pgscore][] = $url;
+                $page[] = $url;
+            }
+
+            //匹配列表
+            $class_preg = "@(article|title|content|list|cover|pic|img)@i";
+            if(preg_match($class_preg,$class)){
+                $score += 10;
+            }
+            $preg = implode('|',$this->contentName);
+            if(preg_match("@({$preg})[/\-_].+@i",$url)){
+                $score += 10;
+            }
+            if(preg_match("@/p/.+@i",$url)){
+                $score += 10;
+            }
+            if(preg_match("@htm|shtm|xhtm@",$url)){
+                $score += 5;
+            }
+            
+            //父元素加权
+            $hs = ['h1','h2','h3','h4','h5'];
+            if(in_array($node->parentNode->tagName,$hs) || in_array($node->parentNode->parentNode->tagName,$hs)){
+                $score += 5;
+            }
+
+            //子元素加权
+            foreach($node->childNodes as $item){
+                if($item->nodeType == 1){
+                    $class = $item->getAttribute('class');
+                    if(preg_match($class_preg,$class)){
+                        $score += 10;
+                    }
+                    if(in_array($item->tagName,$hs)){
+                        $score += 5;
+                    }
+                }
+            }
+
+            //非同域名减权
+            // if($this->url && $a = $this->getDomain($url)){
+            //     $b = $this->getDomain($this->url);
+            //     if($a != $b){
+            //         $score -= 1;
+            //     }
+            // }
+
+            if($score < 1){
+                continue;
+            }
+
+            //采样分类
+            if(strlen($title[$url]) < strlen($text)){
+                $title[$url] = $text;
+            }
+            $pattern = $this->urlSampling($url);
+            $list[$pattern][] = $url;
+            $length[$pattern] = count($list[$pattern]);
+
+            //更新采样加权值
+            if(!isset($power[$pattern]) || $score > $power[$pattern]){
+                $power[$pattern] = $score;
             }
         }
-        // print_r($list);exit;
-        // print_r($page);exit;
-        if(!empty($list)){
-            $key = max(array_keys($list));
-            $list = array_values(array_unique($list[$key]));
+
+        if($debug){
+            print_r($list);
+            print_r($power);
+            print_r($length);
+            print_r($title);
+            print_r($page);
+            exit;
         }
-        
-        if(!empty($page)){
-            $key = max(array_keys($page));
-            $page = array_values(array_unique($page[$key]));
+
+        //获取最佳列表
+        $max_score_key = $this->getMaxKey($power);
+        $max_length_key = $this->getMaxKey($length);
+        if($max_score_key == $max_length_key){
+            $list = $list[$max_score_key];
+        }elseif($power[$max_score_key] == $power[$max_length_key]){
+            $list = $list[$max_length_key];
+        }elseif($power[$max_length_key] > 15){
+            $list = array_merge($list[$max_score_key],$list[$max_length_key]);
+        }elseif($power[$max_score_key] > 15){
+            $list = $list[$max_score_key];
+        }else{
+            $list = $list[$max_length_key];
         }
-        return ['list'=>$list,'page'=>$page];
+        $list = array_unique($list);
+
+        //匹配标题
+        $titles = [];
+        foreach($list as $k=>$item){
+            if(empty($title[$item])){
+                unset($list[$k]);
+            }else{
+                $titles[$k] = $title[$item];
+            }
+        }
+        $page = array_unique($page);
+        $list = array_values($list);
+        $titles = array_values($titles);
+        return ['list'=>$list,'title'=>$titles];
     }
 
     /**
@@ -462,5 +576,48 @@ class EasyHTML
         }
         
         return $dom;
+    }
+
+    public function getDomain($url){
+        $urlinfo = parse_url($url);
+        $host = $urlinfo['host'];
+        if($host){
+            $host = explode('.',$host);
+            if(count($host) > 2){
+                unset($host[0]);
+            }
+            $host = implode('.',$host);
+        }
+        return $host;
+    }
+
+    protected function getMaxTitle($text){
+        $last = '';
+        $text = trim($text);
+        $text = str_replace("\r\n","\n",$text);
+        $text = str_replace("\r","\n",$text);
+        $text = str_replace(' ','',$text);
+        $text = explode("\n",$text);
+        $last = $text[0];
+        if(count($text) > 1){
+            foreach($text as $v){
+                if(strlen($last) < strlen($v)){
+                    $last = $v;
+                }
+            }
+        }
+        return $last;
+    }
+
+    protected function getMaxKey($arr){
+        $max = 0;
+        $key = '';
+        foreach($arr as $k=>$v){
+            if($v > $max){
+                $max = $v;
+                $key = $k;
+            }
+        }
+        return $key;
     }
 }

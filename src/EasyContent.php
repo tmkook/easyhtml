@@ -76,6 +76,8 @@ class EasyContent
         if(empty($info['host'])){
             $info['scheme'] = $site['scheme'];
             $info['host'] = $site['host'];
+        }else if(empty($info['scheme'])){
+            $info['scheme'] = $site['scheme'];
         }
         $rel = empty($site['path'])? '/' : $site['path'];
         $path = empty($info['path'])? '/' : $info['path'];

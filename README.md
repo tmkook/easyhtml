@@ -1,17 +1,17 @@
-# easyhtml
+# About
 
 自动提取HTML的文章列表和文章正文
 无需输入任何标签信息及正则信息
 支持大部分主流博客和新闻站点
 
-## 安装
+## Install
 
 ```shell
 # tmkook/easyhtml 1.0
-composer require "tmkook/easyhtml:*"
+composer require "tmkook/easyhtml:1.0"
 ```
 
-## 使用
+## How to use
 
 ```php
 //$data可以是URL或HTML
@@ -19,12 +19,12 @@ $easy = new Tmkook\EasyHTML($data);
 
 //或者
 $easy = new Tmkook\EasyHTML;
-$easy->loadURL('http url'); //加载一个URL
+$easy->loadURL('https://example.com/news'); //加载一个URL
 $easy->loadHTML($html); //或者加载一段HTML
 
 
 //获取当前页面所有文章链接和分页链接
-//return ['list'=>list,'page'=>page]
+//return ['list'=>$list,'title'=>$title,'page'=>$page]
 $easy->getList();
 
 //获取当前页面文章内容，相对链接转换可使用 EasyContent 
@@ -57,7 +57,7 @@ https://www.php.net/manual/en/class.domdocument.php
 
 ```
 
-## EasyContent 相对链接转换
+## Relative link to absolute link
 
 ```php
 //相对链接转换绝对链接的域名
@@ -70,7 +70,8 @@ $content = $easy->getContent();
 $easyContent = new Tmkook\EasyContent($url,$content);
 
 //或者
-$easyContent = new Tmkook\EasyContent($url);
+$easyContent = new Tmkook\EasyContent;
+$easyContent->setBase($url);
 $easyContent->setContent($content);
 
 //获取转换后的正文
@@ -83,6 +84,11 @@ $easyContent->getText($length);//截取多少个字符，默认为0不截取
 $easyContent->getImages($length);//获取多少个正文图片，默认为0取全部
 
 ```
+
+## case
+
+https://www.kmola.com
+
 
 ## License
 
